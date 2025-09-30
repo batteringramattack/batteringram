@@ -1,0 +1,88 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid 5a8d8d7a-a63e-4b2c-a1e8-86f20c4852da)
+
+  (paper "USLetter")
+
+  (title_block
+    (title "The mFIT's interposer on the DDR4 bus.")
+    (rev "1")
+    (comment 2 "The most interesting bits are in the \"Interposer Control\"")
+  )
+
+  (lib_symbols
+  )
+
+
+  (sheet (at 38.1 25.4) (size 50.8 50.8) (fields_autoplaced)
+    (stroke (width 0) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 00000000-0000-0000-0000-00005db9a55f)
+    (property "Sheetname" "Mother Board Connection" (at 38.1 24.6884 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "mobo-conn.kicad_sch" (at 38.1 76.7846 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "fault-injector"
+        (path "/5a8d8d7a-a63e-4b2c-a1e8-86f20c4852da" (page "3"))
+      )
+    )
+  )
+
+  (sheet (at 114.3 25.4) (size 50.8 50.8) (fields_autoplaced)
+    (stroke (width 0) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 00000000-0000-0000-0000-00005db9e892)
+    (property "Sheetname" "Interposer Control" (at 114.3 24.6884 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "interposer.kicad_sch" (at 114.3 76.7846 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "fault-injector"
+        (path "/5a8d8d7a-a63e-4b2c-a1e8-86f20c4852da" (page "4"))
+      )
+    )
+  )
+
+  (sheet (at 190.5 25.4) (size 50.8 50.8) (fields_autoplaced)
+    (stroke (width 0) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 00000000-0000-0000-0000-00005db9ed49)
+    (property "Sheetname" "DIMM Connection" (at 190.5 24.6884 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "dimm-conn.kicad_sch" (at 190.5 76.7846 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "fault-injector"
+        (path "/5a8d8d7a-a63e-4b2c-a1e8-86f20c4852da" (page "5"))
+      )
+    )
+  )
+
+  (sheet (at 36.83 88.9) (size 201.93 5.08) (fields_autoplaced)
+    (stroke (width 0) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 00000000-0000-0000-0000-00005dbd8539)
+    (property "Sheetname" "One To One Connections" (at 36.83 88.1884 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "one-to-one-conns.kicad_sch" (at 36.83 94.5646 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "fault-injector"
+        (path "/5a8d8d7a-a63e-4b2c-a1e8-86f20c4852da" (page "2"))
+      )
+    )
+  )
+
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)

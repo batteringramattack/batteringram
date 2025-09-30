@@ -1,0 +1,14 @@
+enclave {
+	
+	trusted {
+        public void  are_initialize_buffer( void );
+				public void  are_flush_buffer( void );
+        public void  are_write_to_buffer(char c);
+				public void  are_print_buffer( void );
+        public void  *are_get_buffer_addr( void );
+	};
+	
+	untrusted {
+				void custom_hexdump([in, size = data_len] char* data, size_t data_len);
+	};
+};

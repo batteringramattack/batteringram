@@ -1,0 +1,39 @@
+diff --git a/kernel/sgxstep.c b/kernel/sgxstep.c
+index 1fdb67e..b63113d 100644
+--- a/kernel/sgxstep.c
++++ b/kernel/sgxstep.c
+@@ -126,16 +126,12 @@ int save_apic(void)
+ 
+ int step_open(struct inode *inode, struct file *file)
+ {
+-    if (g_in_use)
++    if (g_in_use++ == 0)
+     {
+-        err("Device is already opened");
+-        return -EBUSY;
++        RET_ASSERT( !save_idt() );
++        RET_ASSERT( !save_apic() );
+     }
+ 
+-    RET_ASSERT( !save_idt() );
+-    RET_ASSERT( !save_apic() );
+-
+-    g_in_use = 1;
+     return 0;
+ }
+ 
+@@ -202,10 +198,11 @@ void restore_apic(void)
+  */
+ int step_release(struct inode *inode, struct file *file)
+ {
+-    restore_idt();
+-    restore_apic();
++    if (--g_in_use == 0) {
++        restore_idt();
++        restore_apic();
++    }
+ 
+-    g_in_use = 0;
+     return 0;
+ }
+ 

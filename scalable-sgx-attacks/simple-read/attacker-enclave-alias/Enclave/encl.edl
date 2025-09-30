@@ -1,0 +1,13 @@
+enclave {
+	
+	trusted {
+        public void  initialize_buffer( void );
+        public void  flush_buffer( void );
+        public void  *get_buffer_addr( void );
+				public void  capture_buffer( void );
+				public void  replay_buffer( void );
+	};
+	
+	untrusted {
+	};
+};

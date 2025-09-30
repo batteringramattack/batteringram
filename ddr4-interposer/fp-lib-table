@@ -1,0 +1,5 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "fi-library")(type "KiCad")(uri "${KIPRJMOD}/../fi-library")(options "")(descr ""))
+  (lib (name "badram")(type "KiCad")(uri "${KIPRJMOD}/badram.pretty")(options "")(descr ""))
+)

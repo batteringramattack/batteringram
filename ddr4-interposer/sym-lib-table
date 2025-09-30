@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name ddr4)(type Legacy)(uri ${KIPRJMOD}/../fi-library/ddr4.lib)(options "")(descr ""))
+  (lib (name ti-switch)(type Legacy)(uri ${KIPRJMOD}/../fi-library/ul_SN74AUC1G66DCKR.lib)(options "")(descr ""))
+)

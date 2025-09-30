@@ -1,0 +1,6 @@
+[submodule "badram"]
+	path = badram
+	url = https://github.com/badramattack/badram
+[submodule "scalable-sgx-attacks/sgx-step"]
+	path = scalable-sgx-attacks/sgx-step
+	url = https://github.com/jovanbulck/sgx-step

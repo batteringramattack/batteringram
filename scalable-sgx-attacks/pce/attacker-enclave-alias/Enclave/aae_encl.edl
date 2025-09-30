@@ -1,0 +1,13 @@
+enclave {
+	
+	trusted {
+        public void  aae_initialize_buffer( void );
+        public void  aae_flush_buffer( void );
+        public void  *aae_get_buffer_addr( void );
+				public void  aae_capture_buffer( void );
+				public void  aae_replay_buffer( void );
+	};
+	
+	untrusted {
+	};
+};

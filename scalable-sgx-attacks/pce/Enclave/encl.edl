@@ -1,0 +1,10 @@
+enclave {
+include "sgx_report.h"
+	
+	trusted {
+            public void mk_report([out] sgx_report_t *report, [out] sgx_target_info_t *target_info);
+        };
+	
+	untrusted {
+	};
+};

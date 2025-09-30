@@ -1,0 +1,91 @@
+diff --git a/sgx_encl.c b/sgx_encl.c
+index 04a1b9c..03a7ab3 100644
+--- a/sgx_encl.c
++++ b/sgx_encl.c
+@@ -73,6 +73,7 @@
+ #include <linux/slab.h>
+ #include <linux/hashtable.h>
+ #include <linux/shmem_fs.h>
++#include <crypto/hash.h>
+ 
+ struct sgx_add_page_req {
+ 	struct sgx_encl *encl;
+@@ -910,6 +911,49 @@ static int sgx_einit(struct sgx_encl *encl, struct sgx_sigstruct *sigstruct,
+ 	return ret;
+ }
+ 
++static int __sgx_get_key_hash(struct crypto_shash *tfm, const void *modulus,
++	void *hash)
++{
++	SHASH_DESC_ON_STACK(shash, tfm);
++
++	shash->tfm = tfm;
++
++	return crypto_shash_digest(shash, modulus, SGX_MODULUS_SIZE, hash);
++}
++
++
++static int sgx_get_key_hash(const void *modulus, void *hash)
++{
++	struct crypto_shash *tfm;
++	int ret;
++
++	tfm = crypto_alloc_shash("sha256", 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(tfm))
++		return PTR_ERR(tfm);
++
++	ret = __sgx_get_key_hash(tfm, modulus, hash);
++
++	crypto_free_shash(tfm);
++	return ret;
++}
++
++/*
++ * Update the SGX_LEPUBKEYHASH MSRs to the values specified by caller.
++ * Bare-metal driver requires to update them to hash of enclave's signer
++ * before EINIT. KVM needs to update them to guest's virtual MSR values
++ * before doing EINIT from guest.
++ */
++void sgx_update_lepubkeyhash(u64 *lepubkeyhash)
++{
++	int i;
++
++	WARN_ON_ONCE(preemptible());
++
++	for (i = 0; i < 4; i++)
++		wrmsrl(MSR_IA32_SGXLEPUBKEYHASH0 + i, lepubkeyhash[i]);
++}
++
++
+ /**
+  * sgx_encl_init - perform EINIT for the given enclave
+  *
+@@ -928,12 +972,17 @@ static int sgx_einit(struct sgx_encl *encl, struct sgx_sigstruct *sigstruct,
+ int sgx_encl_init(struct sgx_encl *encl, struct sgx_sigstruct *sigstruct,
+ 		  struct sgx_einittoken *token)
+ {
++  unsigned long long mrsigner[4];
+ 	int ret;
+ 	int i;
+ 	int j;
+ 
+ 	flush_work(&encl->add_page_work);
+ 
++  ret = sgx_get_key_hash(sigstruct->modulus, mrsigner);
++  if (ret)
++    return ret;
++
+ 	mutex_lock(&encl->lock);
+ 
+ 	if (encl->flags & SGX_ENCL_INITIALIZED) {
+@@ -943,7 +992,9 @@ int sgx_encl_init(struct sgx_encl *encl, struct sgx_sigstruct *sigstruct,
+ 
+ 	for (i = 0; i < SGX_EINIT_SLEEP_COUNT; i++) {
+ 		for (j = 0; j < SGX_EINIT_SPIN_COUNT; j++) {
+-			ret = sgx_einit(encl, sigstruct, token);
++			sgx_update_lepubkeyhash(mrsigner);
++
++      ret = sgx_einit(encl, sigstruct, token);
+ 
+ 			if (ret == SGX_UNMASKED_EVENT)
+ 				continue;

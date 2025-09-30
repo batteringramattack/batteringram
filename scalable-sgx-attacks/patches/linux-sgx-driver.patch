@@ -1,0 +1,248 @@
+diff --git a/sgx.h b/sgx.h
+index 62c19da..7617e1e 100644
+--- a/sgx.h
++++ b/sgx.h
+@@ -269,6 +269,7 @@ extern atomic_t sgx_va_pages_cnt;
+ int sgx_add_epc_bank(resource_size_t start, unsigned long size, int bank);
+ int sgx_page_cache_init(void);
+ void sgx_page_cache_teardown(void);
++int sgx_epc_set_pa(unsigned long pa, int alloc_nb, int nb_pages);
+ struct sgx_epc_page *sgx_alloc_page(unsigned int flags);
+ void sgx_free_page(struct sgx_epc_page *entry, struct sgx_encl *encl);
+ void *sgx_get_page(struct sgx_epc_page *entry);
+diff --git a/sgx_ioctl.c b/sgx_ioctl.c
+index 56ab1e6..446c809 100644
+--- a/sgx_ioctl.c
++++ b/sgx_ioctl.c
+@@ -377,6 +377,50 @@ long sgx_ioc_page_remove(struct file *filep, unsigned int cmd,
+ 	return ret;
+ }
+ 
++/**
++ * sgx_ioc_epc_page_addr - handler for %SGX_IOC_EPC_PAGE_ADDR
++ * @filep:	open file to /dev/sgx
++ * @cmd:	the command value
++ * @arg:	pointer to the &struct sgx_enclave_create
++ *
++ * Validates SECS attributes, allocates an EPC page for the SECS and performs
++ * ECREATE.
++ *
++ * Return:
++ * 0 on success,
++ * system error on failure
++ */
++static long sgx_ioc_epc_page_addr(struct file *filep, unsigned int cmd,
++				   unsigned long arg)
++{
++	struct sgx_epc_page_addr *epcaddr = (struct sgx_epc_page_addr *)arg;
++	unsigned long pa = epcaddr->pa;
++	int alloc_nb = epcaddr->alloc_nb;
++  int nb_pages = epcaddr->nb_pages;
++	int ret;
++
++	ret = sgx_epc_set_pa(pa, alloc_nb, nb_pages);
++
++	// void __user *src = (void __user *)createp->src;
++	// struct sgx_secs *secs;
++	// int ret;
++
++	// secs = kzalloc(sizeof(*secs),  GFP_KERNEL);
++	// if (!secs)
++	// 	return -ENOMEM;
++
++	// ret = copy_from_user(secs, src, sizeof(*secs));
++	// if (ret) {
++	// 	kfree(secs);
++	// 	return ret;
++	// }
++
++	// ret = sgx_encl_create(secs);
++
++	// kfree(secs);
++	return ret;
++}
++
+ typedef long (*sgx_ioc_t)(struct file *filep, unsigned int cmd,
+ 			  unsigned long arg);
+ 
+@@ -411,6 +455,9 @@ long sgx_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
+ 	case SGX_IOC_ENCLAVE_PAGE_REMOVE:
+ 		handler = sgx_ioc_page_remove;
+ 		break;
++	case SGX_IOC_EPC_PAGE_ADDR:
++		handler = sgx_ioc_epc_page_addr;
++		break;
+ 	default:
+ 		return -ENOIOCTLCMD;
+ 	}
+diff --git a/sgx_main.c b/sgx_main.c
+index ca52821..a9e637f 100644
+--- a/sgx_main.c
++++ b/sgx_main.c
+@@ -203,6 +203,7 @@ static int sgx_dev_init(struct device *parent)
+ 	int ret;
+ 	int i;
+ 	int msr_reset_failed = 0;
++	int skipped_banks = 0;
+ 
+ 	pr_info("intel_sgx: " DRV_DESCRIPTION " v" DRV_VERSION "\n");
+ 
+@@ -221,7 +222,7 @@ static int sgx_dev_init(struct device *parent)
+ 
+ 		for (i = 2; i < 64; i++) {
+ 			cpuid_count(0x0D, i, &eax, &ebx, &ecx, &edx);
+-			if ((1 << i) & sgx_xfrm_mask)
++			if ((1ULL << i) & sgx_xfrm_mask)
+ 				sgx_xsave_size_tbl[i] = eax + ebx;
+ 		}
+ 	}
+@@ -237,11 +238,17 @@ static int sgx_dev_init(struct device *parent)
+ 
+ 		dev_info(parent, "EPC bank 0x%lx-0x%lx\n", pa, pa + size);
+ 
+-		sgx_epc_banks[i].pa = pa;
+-		sgx_epc_banks[i].size = size;
++		if (pa < 0x4000000000) {
++			pr_info("EPC bank not affected by interposer -- skipping");
++			skipped_banks++;
++			continue;
++		}
++
++		sgx_epc_banks[i - skipped_banks].pa = pa;
++		sgx_epc_banks[i - skipped_banks].size = size;
+ 	}
+ 
+-	sgx_nr_epc_banks = i;
++	sgx_nr_epc_banks = i - skipped_banks;
+ 
+ 	for (i = 0; i < sgx_nr_epc_banks; i++) {
+ #ifdef CONFIG_X86_64
+diff --git a/sgx_page_cache.c b/sgx_page_cache.c
+index 77bea6e..1bc2b09 100644
+--- a/sgx_page_cache.c
++++ b/sgx_page_cache.c
+@@ -86,6 +86,10 @@ static unsigned int sgx_nr_high_pages;
+ static struct task_struct *ksgxswapd_tsk;
+ static DECLARE_WAIT_QUEUE_HEAD(ksgxswapd_waitq);
+ 
++static int alloc_nb = -1;
++static unsigned long alloc_pa = 0;
++static int nb_pages = 0;
++
+ static int sgx_test_and_clear_young_cb(pte_t *ptep,
+ #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 3, 0))
+     #if( defined(RHEL_RELEASE_VERSION) && defined(RHEL_RELEASE_CODE))
+@@ -477,21 +481,56 @@ void sgx_page_cache_teardown(void)
+ 	spin_unlock(&sgx_free_list_lock);
+ }
+ 
++int sgx_epc_set_pa(unsigned long pa_, int alloc_nb_, int nb_pages_) {
++	pr_info("Received request for pa=%lx at alloc number %d for %d pages", pa_, alloc_nb_, nb_pages_);
++	alloc_pa = pa_;
++	alloc_nb = alloc_nb_;
++  nb_pages = nb_pages_;
++	return 0;
++}
++
++static int b(unsigned long pa, int index) {
++  return (pa >> index) & 1;
++}
++
++
++static int is_unaffected_region(unsigned long pa) {
++	unsigned long dram_pa = pa - 0x80000000;
++	return !b(dram_pa, 33) & !b(dram_pa, 32);
++}
++
+ static struct sgx_epc_page *sgx_alloc_page_fast(void)
+ {
+-	struct sgx_epc_page *entry = NULL;
++	struct sgx_epc_page *entry = NULL, *p = NULL;
+ 
+ 	spin_lock(&sgx_free_list_lock);
+ 
+-	if (!list_empty(&sgx_free_list)) {
+-		entry = list_first_entry(&sgx_free_list, struct sgx_epc_page,
+-					 list);
+-		list_del(&entry->list);
+-		sgx_nr_free_pages--;
++	list_for_each_entry(p, &sgx_free_list, list) {
++		if ((alloc_nb != 0 && is_unaffected_region(p->pa) && (nb_pages == 0 || !(p->pa >= alloc_pa && p->pa < alloc_pa + (nb_pages << 12))) && p->pa > 0x7080555000 && !(p->pa >= 0x7090000000 && p->pa < 0x70a0000000)) ||
++				(alloc_nb == 0 && p->pa == alloc_pa)) {
++			entry = p;
++			list_del(&entry->list);
++			sgx_nr_free_pages--;
++
++			if (nb_pages > 0 && alloc_nb > 0)
++				alloc_nb--;
++      else if (nb_pages > 0 && alloc_nb == 0) {
++        alloc_pa += 0x1000;
++        nb_pages--;
++      }
++      else if (nb_pages == 0 && alloc_nb >= 0)
++        alloc_nb--;
++
++
++      break;
++		}
+ 	}
+ 
+ 	spin_unlock(&sgx_free_list_lock);
+ 
++	if (entry)
++		pr_info("Allocated EPC page at pa=%llx", entry->pa);
++
+ 	return entry;
+ }
+ 
+@@ -556,6 +595,7 @@ void sgx_free_page(struct sgx_epc_page *entry, struct sgx_encl *encl)
+ 	void *epc;
+ 	int ret;
+ 
++  pr_info("Removing EPC page at pa=%llx", entry->pa);
+ 	epc = sgx_get_page(entry);
+ 	ret = __eremove(epc);
+ 	sgx_put_page(epc);
+@@ -564,7 +604,10 @@ void sgx_free_page(struct sgx_epc_page *entry, struct sgx_encl *encl)
+ 		sgx_crit(encl, "EREMOVE returned %d\n", ret);
+ 
+ 	spin_lock(&sgx_free_list_lock);
+-	list_add(&entry->list, &sgx_free_list);
++  if (entry->pa >= 0x7090000000 && entry->pa < 0x70a0000000)
++	  list_add(&entry->list, &sgx_free_list);
++  else
++	  list_add_tail(&entry->list, &sgx_free_list);
+ 	sgx_nr_free_pages++;
+ 	spin_unlock(&sgx_free_list_lock);
+ }
+diff --git a/sgx_user.h b/sgx_user.h
+index 50f0931..5b5acc2 100644
+--- a/sgx_user.h
++++ b/sgx_user.h
+@@ -79,6 +79,8 @@
+ 	_IOW(SGX_MAGIC, 0x0c, struct sgx_range)
+ #define SGX_IOC_ENCLAVE_PAGE_REMOVE \
+ 	_IOW(SGX_MAGIC, 0x0d, unsigned long)
++#define SGX_IOC_EPC_PAGE_ADDR \
++	_IOW(SGX_MAGIC, 0x00, struct sgx_epc_page_addr)
+ 
+ /* SGX leaf instruction return values */
+ #define SGX_SUCCESS			0
+@@ -161,4 +163,17 @@ struct sgx_modification_param {
+ 	unsigned long flags;
+ };
+ 
++/**
++ * struct sgx_epc_page_addr - parameter structure for the
++ *                             %SGX_IOC_EPC_PAGE_ADDR ioctl
++ * @pa: physical address of the target page
++ * @alloc_nb: allocation number for target page
++ * @nb_pages: the number of pages to allocate, will be allocated sequentially  
++ */
++struct sgx_epc_page_addr  {
++	unsigned long	pa;
++	int alloc_nb;
++  int nb_pages;
++} __attribute__((__packed__));
++
+ #endif /* _UAPI_ASM_X86_SGX_H */
