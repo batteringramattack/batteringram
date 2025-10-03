@@ -31,7 +31,7 @@ This artifact requires a custom DDR4 interposer to introduce dynamic memory alia
 
 ### Creating aliases
 
-The interposer creates aliases by tying certain row address lines to ground. This causes aliases in the CPU's physical memory space as the DIMM now always sees a low signal, regdarless of the address sent out by the CPU.
+The interposer creates aliases by tying certain row address lines to ground. This causes aliases in the CPU's physical memory space as the DIMM now always sees a low signal, regardless of the address sent out by the CPU.
 
 The interposer has five footprints that can be populated with switches. These footprints are labeled in the silkscreen. These include three footprints for inserting the switches on the A11, A13, and A17 lines (labeled "A11->A11", "A13->A13", and "A17->A17", respectively).
 If a switch is not installed in a footprint, a jumper must be soldered in its place to connect the CPU and DIMM lines without interruption.
