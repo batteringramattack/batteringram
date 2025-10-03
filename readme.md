@@ -17,7 +17,7 @@ This repository is organized as follows.
 
 ### Hardware requirements
 
-This artifact requires a custom DDR4 interposer to introduce dynamic memory aliases. The hardware schematic and PCB files for this interposer can be found in `./ddr4-interposer`. Below is the bill-of-materials.
+This artifact requires a custom DDR4 interposer to introduce dynamic memory aliases. The hardware schematic and PCB files for this interposer can be found in `./ddr4-interposer`. Below is the bill of materials.
 
 | **Component**     | **Cost**  | **Qty.** | **Part number**        |
 |-------------------|-------|:----:|---------------------|
@@ -39,7 +39,7 @@ If a switch is not installed in a footprint, a jumper must be soldered in its pl
 Additionally, to bypass RCD parity checking, two additional footprints optionally allow the A11 or A13 signals to be redirected to A17 (labeled "A11->A17" and "A13->A17", respectively).
 Note that only one of these footprints can be occupied at a time. These switches can also not be used in conjunction with the "A17->A17" switch. When installing a switch on these footprints, you must also connect the corresponding jumper to connect it to the A17 line on the DIMM side.
 
-### Mapping out unstable and aliased region in Linux
+### Mapping out unstable and aliased regions in Linux
 
 When RCD parity is enabled, unstable memory regions are created where only a single bit is flipped, resulting in a parity error. Additionally, writes to aliased memory regions while the interposer is active may accidentally overwrite critical memory regions, potentially causing the system to crash.
 To avoid these issues, the use of both the unstable regions and aliased regions can be prevented by using the `memmap` kernel parameter:
