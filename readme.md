@@ -26,7 +26,7 @@ This artifact requires a custom DDR4 interposer to introduce dynamic memory alia
 | Analog Switches   | $4    | 2    | ADG902BRMZ          |
 | Voltage regulator | $0.65 | 1    | LD1117S25TR         |
 | Resistor, 0402, 1kOhm     | $0.005 | 2    |            |
-| Capacitor, 0603, 1uF      | $0.099 | 3    |            |
+| Capacitor, 0603, 100nF    | $0.02  | 3    |            |
 | Capacitor, 1206, 10uF     | $0.018 | 1    |            |
 
 ### Creating aliases
