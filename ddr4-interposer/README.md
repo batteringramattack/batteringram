@@ -40,10 +40,10 @@ Each switch has its own pull-up resistor and decoupling capacitor. Each in-line 
 
 ## Configuring the interposer
  
-Each populated switch needs a pull-up resistor (1 kΩ) and a 100 nF decoupling capacitor, see the table above. In-line switches (U5, U1, U6) that are left unpopulated need their passthrough jumper instead, otherwise the corresponding address line is not connected to the DIMM. The exception is A17 when one of the redirect switches (U5, U2) is installed: the redirect switch then drives A17, so R17 is left unpopulated.
+Each populated switch needs a pull-up resistor (1 kΩ) and a 100 nF decoupling capacitor, see the table above. In-line switches (U4, U1, U6) that are left unpopulated need their passthrough jumper instead, otherwise the corresponding address line is not connected to the DIMM. The exception is A17 when one of the redirect switches (U5, U2) is installed: the redirect switch then drives A17, so R17 is left unpopulated.
  
 > [!NOTE]
-> Each DIMM-side line must be driven by exactly one path: its in-line switch, its passthrough jumper, or (for A17) one of the redirect switches. For example, populating both U4 (A11 -> A17) and U6 (A17 -> A17), or U2 (A13 -> A17) together with R17, is invalid, as both would drive A17 on the DIMM.
+> Each DIMM-side line must be driven by exactly one path: its in-line switch, its passthrough jumper, or (for A17) one of the redirect switches. For example, populating both U5 (A11 -> A17) and U6 (A17 -> A17), or U2 (A13 -> A17) together with R17, is invalid, as both would drive A17 on the DIMM.
  
 
 
